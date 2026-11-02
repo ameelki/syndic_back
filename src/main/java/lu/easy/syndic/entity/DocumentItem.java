@@ -1,0 +1,17 @@
+package lu.easy.syndic.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "documents")
+public class DocumentItem extends BuildingScoped {
+    @NotBlank @Size(max = 150) @Column(nullable = false, length = 150) public String title;
+    @NotNull @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) public DocumentCategory category = DocumentCategory.OTHER;
+    @Size(max = 500) @Column(length = 500) public String url;
+    @Size(max = 1000) @Column(length = 1000) public String notes;
+    @Column(updatable = false) public LocalDateTime createdAt = LocalDateTime.now();
+}
