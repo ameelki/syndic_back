@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, shared).authenticated()
                 .requestMatchers(shared).hasRole("ADMIN")
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/super/**").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

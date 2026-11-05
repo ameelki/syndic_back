@@ -19,13 +19,35 @@ public final class Dtos {
             @NotBlank @Size(min = 8, max = 72) String password,
             @Size(max = 40) String phone,
             @Size(max = 120) String requestedLot,
-            @NotNull @AssertTrue(message = "Les conditions doivent être acceptées") Boolean termsAccepted) {}
-    public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {}
+            @NotNull @AssertTrue(message = "Les conditions doivent être acceptées") Boolean termsAccepted,
+            @Size(max = 40) String agencySlug) {}
+    public record LoginRequest(@NotBlank @Email String email, @NotBlank String password, @Size(max = 40) String agencySlug) {}
     public record UserDto(Long id, String firstName, String lastName, String email, String phone, String requestedLot,
-                          Role role, UserStatus status, LocalDateTime createdAt, LocalDateTime approvedAt) {}
+                          Role role, UserStatus status, LocalDateTime createdAt, LocalDateTime approvedAt, Long agencyId) {}
     public record AuthResponse(String token, UserDto user) {}
     public record MessageResponse(String message) {}
     public record ErrorResponse(String message, Map<String, String> fields) {}
+
+    // ---- Agences ----
+    /** Ce que le front public a le droit de connaître d'une agence (nom, logo, couleurs). */
+    public record AgencyPublic(Long id, String slug, String name, String tagline, String logoUrl,
+                               String primaryColor, String accentColor) {}
+    public record AgencyBranding(@NotBlank @Size(max = 120) String name, @Size(max = 200) String tagline,
+                                 @Pattern(regexp = "^(https?://.+)?$") @Size(max = 300) String logoUrl,
+                                 @Pattern(regexp = "^(#[0-9a-fA-F]{6})?$") String primaryColor,
+                                 @Pattern(regexp = "^(#[0-9a-fA-F]{6})?$") String accentColor) {}
+    /** Création / modification par le super administrateur (les champs admin* ne servent qu'à la création). */
+    public record AgencyCreate(@NotBlank @Size(max = 120) String name,
+                               @NotBlank @Pattern(regexp = "^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$") String slug,
+                               @Size(max = 200) String tagline,
+                               @Pattern(regexp = "^(https?://.+)?$") @Size(max = 300) String logoUrl,
+                               @Pattern(regexp = "^(#[0-9a-fA-F]{6})?$") String primaryColor,
+                               @Pattern(regexp = "^(#[0-9a-fA-F]{6})?$") String accentColor,
+                               Boolean active,
+                               @Size(max = 100) String adminFirstName, @Size(max = 100) String adminLastName,
+                               @Email @Size(max = 190) String adminEmail, @Size(min = 8, max = 72) String adminPassword) {}
+    public record AgencyRow(Long id, String slug, String name, String tagline, String logoUrl, String primaryColor,
+                            String accentColor, boolean active, long buildings, long owners, LocalDateTime createdAt) {}
 
     // ---- Charges ----
     public record ChargeCallRequest(@NotBlank @Size(max = 150) String title,

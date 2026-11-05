@@ -1,13 +1,15 @@
 package lu.easy.syndic.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
+@Filter(name = "agencyFilter", condition = "agency_id = :agencyId")
 @Table(name = "reservations")
-public class Reservation extends BaseEntity {
+public class Reservation extends AgencyScoped {
     @Column(nullable = false, length = 100) public String space;
     @Column(nullable = false) public LocalDate date;
     @Column(nullable = false) public LocalTime startTime;

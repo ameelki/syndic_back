@@ -1,14 +1,16 @@
 package lu.easy.syndic.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
+@Filter(name = "agencyFilter", condition = "agency_id = :agencyId")
 @Table(name = "charges")
-public class Charge extends BaseEntity {
+public class Charge extends AgencyScoped {
     @Column(nullable = false) public Long callId;
     @Column(nullable = false) public Long lotId;
     public Long ownerId;

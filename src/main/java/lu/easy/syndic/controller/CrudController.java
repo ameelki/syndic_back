@@ -1,7 +1,7 @@
 package lu.easy.syndic.controller;
 
 import jakarta.validation.Valid;
-import lu.easy.syndic.entity.BaseEntity;
+import lu.easy.syndic.entity.AgencyScoped;
 import lu.easy.syndic.entity.BuildingScoped;
 import lu.easy.syndic.entity.Lot;
 import lu.easy.syndic.entity.Role;
@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** CRUD générique ; les droits (lecture / écriture) sont définis dans SecurityConfig. */
-public abstract class CrudController<T extends BaseEntity> {
+public abstract class CrudController<T extends AgencyScoped> {
 
     protected final JpaRepository<T, Long> repo;
     private final String label;
@@ -73,13 +73,15 @@ public abstract class CrudController<T extends BaseEntity> {
     @ResponseStatus(HttpStatus.CREATED)
     public T create(@Valid @RequestBody T body) {
         body.id = null;
+        body.agencyId = null; // fixée côté serveur (AgencyListener)
         return repo.save(body);
     }
 
     @PutMapping("/{id}")
     public T update(@PathVariable Long id, @Valid @RequestBody T body) {
-        if (!repo.existsById(id)) throw CurrentUser.notFound(label);
+        T existing = repo.findById(id).orElseThrow(() -> CurrentUser.notFound(label));
         body.id = id;
+        body.agencyId = existing.agencyId; // l'agence ne peut pas être changée par le client
         return repo.save(body);
     }
 

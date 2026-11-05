@@ -5,7 +5,7 @@ import jakarta.persistence.MappedSuperclass;
 
 /** Entité rattachable à un bâtiment (buildingId null = toute la copropriété / tous les bâtiments). */
 @MappedSuperclass
-public abstract class BuildingScoped extends BaseEntity {
+public abstract class BuildingScoped extends AgencyScoped {
     @Column(name = "building_id")
     public Long buildingId;
 }

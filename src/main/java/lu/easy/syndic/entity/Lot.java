@@ -1,12 +1,14 @@
 package lu.easy.syndic.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
+@Filter(name = "agencyFilter", condition = "agency_id = :agencyId")
 @Table(name = "lots", uniqueConstraints = @UniqueConstraint(columnNames = {"number", "building_id"}))
 public class Lot extends BuildingScoped {
     @NotBlank @Size(max = 40) @Column(nullable = false, length = 40) public String number;
