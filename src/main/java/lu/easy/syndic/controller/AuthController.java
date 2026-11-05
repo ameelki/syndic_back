@@ -74,7 +74,8 @@ public class AuthController {
             if (r.agencySlug() != null && !r.agencySlug().isBlank()) {
                 Agency site = agencies.findBySlug(r.agencySlug().trim().toLowerCase()).orElse(null);
                 if (site == null || !site.id.equals(u.agencyId)) {
-                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe incorrect");
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                            "Ce compte n'appartient pas à cette agence. Utilisez le lien de votre agence.");
                 }
             }
             Agency own = u.agencyId == null ? null : agencies.findById(u.agencyId).orElse(null);

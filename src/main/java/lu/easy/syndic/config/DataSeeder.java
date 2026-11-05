@@ -5,6 +5,7 @@ import lu.easy.syndic.repository.AgencyRepository;
 import lu.easy.syndic.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,11 @@ import java.time.LocalDateTime;
 @Component
 public class DataSeeder implements CommandLineRunner {
 
+    private static final String[] TABLES = {"app_users", "buildings", "lots", "charge_calls", "charges", "expenses", "incidents", "works",
+            "assemblies", "resolutions", "votes", "proxy_grants", "announcements", "documents", "budgets", "suppliers",
+            "reservations", "contact_messages"};
+
+    private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final AgencyRepository agencies;
     private final PasswordEncoder encoder;
@@ -24,12 +30,13 @@ public class DataSeeder implements CommandLineRunner {
     private final String superEmail;
     private final String superPassword;
 
-    public DataSeeder(UserRepository users, AgencyRepository agencies, PasswordEncoder encoder,
+    public DataSeeder(JdbcTemplate jdbc, UserRepository users, AgencyRepository agencies, PasswordEncoder encoder,
                       @Value("${app.admin.email}") String email, @Value("${app.admin.password}") String password,
                       @Value("${app.agency.default-slug:default}") String agencySlug,
                       @Value("${app.agency.default-name:Syndic}") String agencyName,
                       @Value("${app.super.email:super@syndic.lu}") String superEmail,
                       @Value("${app.super.password:changeme123}") String superPassword) {
+        this.jdbc = jdbc;
         this.users = users;
         this.agencies = agencies;
         this.encoder = encoder;
@@ -54,6 +61,17 @@ public class DataSeeder implements CommandLineRunner {
         return u;
     }
 
+    /**
+     * Base existante créée avant les agences : les lignes sans agence (comptes syndic / copropriétaires compris,
+     * hors super administrateur) sont rattachées à l'agence par défaut, sinon elles resteraient inaccessibles.
+     */
+    private void adoptOrphans(Long agencyId) {
+        for (String t : TABLES) {
+            String where = t.equals("app_users") ? " AND role <> 'SUPER_ADMIN'" : "";
+            jdbc.update("UPDATE " + t + " SET agency_id = ? WHERE agency_id IS NULL" + where, agencyId);
+        }
+    }
+
     @Override
     public void run(String... args) {
         Agency agency = agencies.findBySlug(agencySlug).orElseGet(() -> {
@@ -62,6 +80,7 @@ public class DataSeeder implements CommandLineRunner {
             a.name = agencyName;
             return agencies.save(a);
         });
+        adoptOrphans(agency.id);
         if (!users.existsByEmail(email)) {
             users.save(account("Syndic", "Administrateur", email, password, Role.ADMIN, agency.id));
         }
