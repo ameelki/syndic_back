@@ -17,4 +17,7 @@ public class Charge extends AgencyScoped {
     @Column(nullable = false, precision = 12, scale = 2) public BigDecimal amount;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) public ChargeStatus status = ChargeStatus.UNPAID;
     public LocalDate paidAt;
+    /** Nombre de relances envoyées et date de la dernière. */
+    public Integer reminderCount = 0;
+    public LocalDateTime lastReminderAt;
 }

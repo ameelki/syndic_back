@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -22,8 +23,13 @@ public class ChargeService {
     private final ChargeRepository charges;
     private final LotRepository lots;
     private final UserRepository users;
+    private final NotificationService notifs;
+    private final ActivityService activity;
 
-    public ChargeService(ChargeCallRepository calls, ChargeRepository charges, LotRepository lots, UserRepository users) {
+    public ChargeService(ChargeCallRepository calls, ChargeRepository charges, LotRepository lots, UserRepository users,
+                         NotificationService notifs, ActivityService activity) {
+        this.notifs = notifs;
+        this.activity = activity;
         this.calls = calls;
         this.charges = charges;
         this.lots = lots;
@@ -55,6 +61,7 @@ public class ChargeService {
                     .divide(BigDecimal.valueOf(totalShares), 2, RoundingMode.HALF_UP);
             charges.save(ch);
         }
+        activity.log("Appel de fonds créé", c.title + " (" + c.totalAmount + " €)");
         return c;
     }
 
@@ -62,6 +69,7 @@ public class ChargeService {
         if (!calls.existsById(id)) throw CurrentUser.notFound("Appel de fonds");
         charges.deleteAllByCallId(id);
         calls.deleteById(id);
+        activity.log("Appel de fonds supprimé", "#" + id);
     }
 
     public ChargeView setPaid(Long id, boolean paid) {
@@ -69,7 +77,62 @@ public class ChargeService {
         c.status = paid ? ChargeStatus.PAID : ChargeStatus.UNPAID;
         c.paidAt = paid ? LocalDate.now() : null;
         charges.save(c);
+        activity.log(paid ? "Paiement enregistré" : "Paiement annulé", "charge #" + id + " (" + c.amount + " €)");
         return views(List.of(c)).get(0);
+    }
+
+    /** Relance un copropriétaire pour une charge impayée (notification + email). */
+    public ChargeView remind(Long id) {
+        Charge c = charges.findById(id).orElseThrow(() -> CurrentUser.notFound("Charge"));
+        if (c.status == ChargeStatus.PAID) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cette charge est déjà payée");
+        if (!sendReminder(c)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucun copropriétaire actif n'est rattaché à ce lot");
+        activity.log("Relance envoyée", "charge #" + id);
+        return views(List.of(c)).get(0);
+    }
+
+    /** Relance tous les impayés d'un appel de fonds ; renvoie le nombre de relances envoyées. */
+    public int remindCall(Long callId) {
+        int n = 0;
+        for (Charge c : charges.findAllByCallId(callId)) {
+            if (c.status == ChargeStatus.UNPAID && sendReminder(c)) n++;
+        }
+        activity.log("Relances envoyées", n + " pour l'appel #" + callId);
+        return n;
+    }
+
+    /** Envoie la relance et la compte. Faux si le lot n'a pas de propriétaire actif. */
+    public boolean sendReminder(Charge c) {
+        User owner = c.ownerId == null ? null : users.findById(c.ownerId).orElse(null);
+        if (owner == null || owner.status != UserStatus.ACTIVE) return false;
+        ChargeCall call = calls.findById(c.callId).orElse(null);
+        String due = call == null || call.dueDate == null ? "" : " (échéance le " + call.dueDate + ")";
+        notifs.notifyAndMail(owner, "Rappel : appel de fonds à régler",
+                "Bonjour " + owner.firstName + ", il reste " + c.amount + " € à régler" + (call == null ? "" : " pour « " + call.title + " »") + due + ".",
+                "/app/mes-charges");
+        c.reminderCount = (c.reminderCount == null ? 0 : c.reminderCount) + 1;
+        c.lastReminderAt = LocalDateTime.now();
+        charges.save(c);
+        return true;
+    }
+
+    /** Export CSV (séparateur « ; », ouvrable dans Excel) pour la comptabilité. */
+    @Transactional(readOnly = true)
+    public String exportCsv(Long callId, ChargeStatus status, Long buildingId) {
+        StringBuilder sb = new StringBuilder("\uFEFFAppel;Échéance;Lot;Copropriétaire;Montant (€);Statut;Payé le;Relances\n");
+        for (ChargeView v : adminList(callId, status, buildingId)) {
+            sb.append(csv(v.callTitle())).append(';').append(v.dueDate() == null ? "" : v.dueDate()).append(';')
+              .append(csv(v.lotNumber())).append(';').append(csv(v.ownerName())).append(';')
+              .append(v.amount().toPlainString().replace('.', ',')).append(';')
+              .append(v.status() == ChargeStatus.PAID ? "Payé" : v.late() ? "En retard" : "À payer").append(';')
+              .append(v.paidAt() == null ? "" : v.paidAt()).append(';').append(v.reminders()).append('\n');
+        }
+        return sb.toString();
+    }
+
+    private static String csv(String s) {
+        if (s == null) return "";
+        String t = s.replace("\"", "\"\"");
+        return t.contains(";") || t.contains("\"") || t.contains("\n") ? "\"" + t + "\"" : t;
     }
 
     @Transactional(readOnly = true)
@@ -101,7 +164,9 @@ public class ChargeService {
             User owner = c.ownerId == null ? null : userMap.get(c.ownerId);
             return new ChargeView(c.id, c.callId, call == null ? "" : call.title, call == null ? null : call.dueDate,
                     c.lotId, lot == null ? "" : lot.number, c.ownerId,
-                    owner == null ? "" : owner.firstName + " " + owner.lastName, c.amount, c.status, c.paidAt);
+                    owner == null ? "" : owner.firstName + " " + owner.lastName, c.amount, c.status, c.paidAt,
+                    c.status == ChargeStatus.UNPAID && call != null && call.dueDate != null && call.dueDate.isBefore(LocalDate.now()),
+                    c.reminderCount == null ? 0 : c.reminderCount, c.lastReminderAt);
         }).toList();
     }
 }

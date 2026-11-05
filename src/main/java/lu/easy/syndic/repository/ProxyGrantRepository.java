@@ -10,4 +10,6 @@ public interface ProxyGrantRepository extends JpaRepository<ProxyGrant, Long> {
     List<ProxyGrant> findAllByAssemblyIdAndToOwnerId(Long assemblyId, Long toOwnerId);
     Optional<ProxyGrant> findByAssemblyIdAndFromOwnerId(Long assemblyId, Long fromOwnerId);
     void deleteAllByAssemblyId(Long assemblyId);
+    void deleteAllByFromOwnerIdOrToOwnerId(Long fromOwnerId, Long toOwnerId);
+    List<ProxyGrant> findAllByFromOwnerIdOrToOwnerId(Long fromOwnerId, Long toOwnerId);
 }

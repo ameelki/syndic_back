@@ -4,7 +4,9 @@ import jakarta.validation.Valid;
 import lu.easy.syndic.dto.Dtos.*;
 import lu.easy.syndic.entity.*;
 import lu.easy.syndic.repository.*;
+import lu.easy.syndic.service.AttendanceService;
 import lu.easy.syndic.service.CurrentUser;
+import lu.easy.syndic.service.MinutesPdf;
 import lu.easy.syndic.service.VotingService;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -29,10 +31,15 @@ public class AssemblyController extends CrudController<Assembly> {
     private final VotingService voting;
     private final ProxyGrantRepository proxyGrants;
     private final UserRepository users;
+    private final AttendanceRepository attendanceRepo;
+    private final AttendanceService attendanceService;
 
     public AssemblyController(AssemblyRepository repo, ResolutionRepository resolutions, VoteRepository votes,
                               LotRepository lots, CurrentUser current, VotingService voting,
-                              ProxyGrantRepository proxyGrants, UserRepository users) {
+                              ProxyGrantRepository proxyGrants, UserRepository users,
+                              AttendanceRepository attendanceRepo, AttendanceService attendanceService) {
+        this.attendanceRepo = attendanceRepo;
+        this.attendanceService = attendanceService;
         super(repo, "Assemblée");
         this.voting = voting;
         this.proxyGrants = proxyGrants;
@@ -48,6 +55,15 @@ public class AssemblyController extends CrudController<Assembly> {
         return Sort.by(Sort.Direction.DESC, "meetingDate");
     }
 
+    /** Le formulaire ne connaît pas la date de convocation : on la conserve. */
+    @Override
+    @PutMapping("/{id}")
+    public Assembly update(@PathVariable Long id, @Valid @RequestBody Assembly body) {
+        Assembly existing = repo.findById(id).orElseThrow(() -> CurrentUser.notFound("Assemblée"));
+        body.convokedAt = existing.convokedAt;
+        return super.update(id, body);
+    }
+
     @Override
     @DeleteMapping("/{id}")
     @Transactional
@@ -56,7 +72,9 @@ public class AssemblyController extends CrudController<Assembly> {
         resolutions.findAllByAssemblyId(id).forEach(r -> votes.deleteAllByResolutionId(r.id));
         resolutions.deleteAllByAssemblyId(id);
         proxyGrants.deleteAllByAssemblyId(id);
+        attendanceRepo.deleteAllByAssemblyId(id);
         repo.deleteById(id);
+        activity.log("Suppression", "Assemblée #" + id);
         return ResponseEntity.noContent().build();
     }
 
@@ -140,5 +158,21 @@ public class AssemblyController extends CrudController<Assembly> {
         votes.deleteAllByResolutionId(rid);
         resolutions.deleteById(rid);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Procès-verbal en PDF : syndic à tout moment, copropriétaires une fois l'assemblée clôturée. */
+    @GetMapping("/{id}/minutes")
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> minutes(@PathVariable Long id, Authentication a) {
+        Assembly asm = get(id);
+        User u = current.get(a);
+        if (u.role != Role.ADMIN && asm.status != AssemblyStatus.CLOSED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Le procès-verbal sera disponible une fois l'assemblée clôturée");
+        }
+        byte[] pdf = MinutesPdf.build(asm, view(id, a), attendanceService.rows(asm));
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"proces-verbal-" + id + ".pdf\"")
+                .body(pdf);
     }
 }

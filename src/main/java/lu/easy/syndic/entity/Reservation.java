@@ -9,7 +9,7 @@ import java.time.LocalTime;
 @Entity
 @Filter(name = "agencyFilter", condition = "agency_id = :agencyId")
 @Table(name = "reservations")
-public class Reservation extends AgencyScoped {
+public class Reservation extends BuildingScoped {
     @Column(nullable = false, length = 100) public String space;
     @Column(nullable = false) public LocalDate date;
     @Column(nullable = false) public LocalTime startTime;

@@ -7,6 +7,7 @@ import lu.easy.syndic.entity.Lot;
 import lu.easy.syndic.entity.Role;
 import lu.easy.syndic.entity.User;
 import lu.easy.syndic.repository.LotRepository;
+import lu.easy.syndic.service.ActivityService;
 import lu.easy.syndic.service.CurrentUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -41,6 +42,9 @@ public abstract class CrudController<T extends AgencyScoped> {
     @Autowired
     protected LotRepository lotRepository;
 
+    @Autowired
+    protected ActivityService activity;
+
     /**
      * Liste, filtrée par bâtiment : un élément sans bâtiment est « général » et reste visible partout.
      * Syndic : filtre optionnel ?buildingId=. Copropriétaire : uniquement les bâtiments où il possède un lot.
@@ -74,7 +78,9 @@ public abstract class CrudController<T extends AgencyScoped> {
     public T create(@Valid @RequestBody T body) {
         body.id = null;
         body.agencyId = null; // fixée côté serveur (AgencyListener)
-        return repo.save(body);
+        T saved = repo.save(body);
+        activity.log("Création", label + " #" + saved.id);
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -82,13 +88,16 @@ public abstract class CrudController<T extends AgencyScoped> {
         T existing = repo.findById(id).orElseThrow(() -> CurrentUser.notFound(label));
         body.id = id;
         body.agencyId = existing.agencyId; // l'agence ne peut pas être changée par le client
-        return repo.save(body);
+        T saved = repo.save(body);
+        activity.log("Modification", label + " #" + id);
+        return saved;
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repo.existsById(id)) throw CurrentUser.notFound(label);
         repo.deleteById(id);
+        activity.log("Suppression", label + " #" + id);
         return ResponseEntity.noContent().build();
     }
 }

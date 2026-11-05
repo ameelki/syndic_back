@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 @Entity
 @Filter(name = "agencyFilter", condition = "agency_id = :agencyId")
 @Table(name = "contact_messages")
-public class ContactMessage extends AgencyScoped {
+public class ContactMessage extends BuildingScoped {
     public Long ownerId;
     public String ownerName;
     @Column(nullable = false, length = 150) public String subject;

@@ -3,13 +3,18 @@ package lu.easy.syndic.controller;
 import jakarta.validation.Valid;
 import lu.easy.syndic.dto.Dtos.*;
 import lu.easy.syndic.entity.*;
+import lu.easy.syndic.repository.IncidentPhotoRepository;
 import lu.easy.syndic.repository.IncidentRepository;
 import lu.easy.syndic.repository.LotRepository;
+import lu.easy.syndic.service.ActivityService;
 import lu.easy.syndic.service.CurrentUser;
+import lu.easy.syndic.service.NotificationService;
+import lu.easy.syndic.repository.UserRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -25,7 +30,17 @@ public class IncidentController {
     private final CurrentUser current;
     private final LotRepository lots;
 
-    public IncidentController(IncidentRepository repo, CurrentUser current, LotRepository lots) {
+    private final IncidentPhotoRepository photos;
+    private final NotificationService notifs;
+    private final ActivityService activity;
+    private final UserRepository users;
+
+    public IncidentController(IncidentRepository repo, CurrentUser current, LotRepository lots, IncidentPhotoRepository photos,
+                              NotificationService notifs, ActivityService activity, UserRepository users) {
+        this.photos = photos;
+        this.notifs = notifs;
+        this.activity = activity;
+        this.users = users;
         this.lots = lots;
         this.repo = repo;
         this.current = current;
@@ -51,7 +66,9 @@ public class IncidentController {
         i.buildingId = r.buildingId() != null ? r.buildingId() : (mine.size() == 1 ? mine.iterator().next() : null);
         i.reporterId = u.id;
         i.reporterName = u.firstName + " " + u.lastName;
-        return repo.save(i);
+        i = repo.save(i);
+        notifs.notifyAdmins("Nouveau signalement : " + i.title, i.reporterName + (i.location == null || i.location.isBlank() ? "" : " — " + i.location), "/app/admin/incidents");
+        return i;
     }
 
     /** Syndic : tous les signalements. */
@@ -64,17 +81,37 @@ public class IncidentController {
     @PutMapping("/admin/incidents/{id}")
     public Incident update(@PathVariable Long id, @Valid @RequestBody IncidentUpdate r) {
         Incident i = repo.findById(id).orElseThrow(() -> CurrentUser.notFound("Incident"));
+        IncidentStatus before = i.status;
         i.status = r.status();
         i.priority = r.priority();
         i.adminComment = r.adminComment();
         i.resolvedAt = r.status() == IncidentStatus.RESOLVED ? (i.resolvedAt == null ? LocalDateTime.now() : i.resolvedAt) : null;
-        return repo.save(i);
+        boolean changed = i.status != before;
+        final Incident saved = repo.save(i);
+        activity.log("Signalement mis à jour", saved.title + " → " + saved.status);
+        if (changed && saved.reporterId != null) {
+            users.findById(saved.reporterId).ifPresent(rep -> notifs.notifyAndMail(rep, "Votre signalement a évolué",
+                    "« " + saved.title + " » est maintenant : " + statusLabel(saved.status) + (saved.adminComment == null || saved.adminComment.isBlank() ? "" : "\nMessage du syndic : " + saved.adminComment),
+                    "/app/mes-incidents"));
+        }
+        return saved;
     }
 
     @DeleteMapping("/admin/incidents/{id}")
+    @Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repo.existsById(id)) throw CurrentUser.notFound("Incident");
+        photos.deleteAllByIncidentId(id);
         repo.deleteById(id);
+        activity.log("Signalement supprimé", "#" + id);
         return ResponseEntity.noContent().build();
+    }
+
+    private static String statusLabel(IncidentStatus s) {
+        return switch (s) {
+            case OPEN -> "ouvert";
+            case IN_PROGRESS -> "en cours de traitement";
+            case RESOLVED -> "résolu";
+        };
     }
 }

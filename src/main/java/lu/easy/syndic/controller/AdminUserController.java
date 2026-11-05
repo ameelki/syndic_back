@@ -4,7 +4,9 @@ import lu.easy.syndic.dto.Dtos.UserDto;
 import lu.easy.syndic.entity.*;
 import lu.easy.syndic.repository.LotRepository;
 import lu.easy.syndic.repository.UserRepository;
+import lu.easy.syndic.service.ActivityService;
 import lu.easy.syndic.service.CurrentUser;
+import lu.easy.syndic.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +24,14 @@ public class AdminUserController {
     private final UserRepository users;
     private final LotRepository lots;
 
-    public AdminUserController(UserRepository users, LotRepository lots) {
+    private final NotificationService notifs;
+    private final ActivityService activity;
+
+    public AdminUserController(UserRepository users, LotRepository lots, NotificationService notifs, ActivityService activity) {
         this.users = users;
         this.lots = lots;
+        this.notifs = notifs;
+        this.activity = activity;
     }
 
     private User find(Long id) {
@@ -49,6 +56,8 @@ public class AdminUserController {
         u.approvedAt = LocalDateTime.now();
         users.save(u);
         if (lotId != null) assign(u, lotId);
+        notifs.notifyAndMail(u, "Votre compte est validé", "Bonjour " + u.firstName + ", le syndic a validé votre compte. Vous pouvez maintenant vous connecter.", "/connexion");
+        activity.log("Compte validé", u.firstName + " " + u.lastName);
         return AuthController.toDto(u);
     }
 
@@ -58,6 +67,8 @@ public class AdminUserController {
         u.status = UserStatus.REJECTED;
         users.save(u);
         lots.findAllByOwnerId(u.id).forEach(l -> { l.ownerId = null; lots.save(l); });
+        notifs.notifyAndMail(u, "Votre demande d'accès", "Bonjour " + u.firstName + ", le syndic n'a pas pu valider votre demande d'accès. Contactez-le directement pour plus d'informations.", "/connexion");
+        activity.log("Compte refusé", u.firstName + " " + u.lastName);
         return AuthController.toDto(u);
     }
 
@@ -68,6 +79,7 @@ public class AdminUserController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le compte doit d'abord être validé");
         }
         assign(u, lotId);
+        activity.log("Lot attribué", u.firstName + " " + u.lastName + " (lot #" + lotId + ")");
         return AuthController.toDto(u);
     }
 
@@ -76,6 +88,7 @@ public class AdminUserController {
         User u = find(id);
         lots.findAllByOwnerId(u.id).forEach(l -> { l.ownerId = null; lots.save(l); });
         users.delete(u);
+        activity.log("Compte supprimé", u.firstName + " " + u.lastName);
         return ResponseEntity.noContent().build();
     }
 

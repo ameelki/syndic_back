@@ -20,4 +20,9 @@ public class Assembly extends BuildingScoped {
     @Min(0) @Max(100) public Integer quorumPercent = 0;
     /** Le vote se ferme automatiquement à cette date (facultatif). */
     public LocalDateTime votingDeadline;
+    /** Date d'envoi de la convocation aux copropriétaires (null = pas encore convoqués). */
+    public LocalDateTime convokedAt;
+    @Size(max = 150) @Column(length = 150) public String chairman;
+    /** Remarques libres reprises dans le procès-verbal. */
+    @Size(max = 4000) @Column(length = 4000) public String minutesNote;
 }

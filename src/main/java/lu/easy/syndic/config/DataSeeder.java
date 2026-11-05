@@ -17,7 +17,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private static final String[] TABLES = {"app_users", "buildings", "lots", "charge_calls", "charges", "expenses", "incidents", "works",
             "assemblies", "resolutions", "votes", "proxy_grants", "announcements", "documents", "budgets", "suppliers",
-            "reservations", "contact_messages"};
+            "reservations", "contact_messages", "notifications", "activity_logs", "deadlines", "attendances", "incident_photos", "document_files", "interventions"};
 
     private final JdbcTemplate jdbc;
     private final UserRepository users;

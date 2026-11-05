@@ -55,7 +55,8 @@ public final class Dtos {
                                     @NotNull @DecimalMin("0.01") BigDecimal totalAmount,
                                     @NotNull LocalDate dueDate, Long buildingId) {}
     public record ChargeView(Long id, Long callId, String callTitle, LocalDate dueDate, Long lotId, String lotNumber,
-                             Long ownerId, String ownerName, BigDecimal amount, ChargeStatus status, LocalDate paidAt) {}
+                             Long ownerId, String ownerName, BigDecimal amount, ChargeStatus status, LocalDate paidAt,
+                             boolean late, int reminders, LocalDateTime lastReminderAt) {}
 
     // ---- Incidents ----
     public record IncidentCreate(@NotBlank @Size(max = 150) String title, @Size(max = 2000) String description,
@@ -86,7 +87,8 @@ public final class Dtos {
     public record AdminDashboard(long pendingUsers, long activeOwners, long lots, long totalTantiemes,
                                  BigDecimal unpaidTotal, long unpaidCount, long openIncidents,
                                  BigDecimal expensesThisYear, BigDecimal budgetThisYear, long highPriorityIncidents,
-                                 List<Expense> recentExpenses, Assembly nextAssembly, List<Announcement> announcements) {}
+                                 List<Expense> recentExpenses, Assembly nextAssembly, List<Announcement> announcements,
+                                 BigDecimal overdueTotal, long overdueCount, List<Deadline> upcomingDeadlines) {}
     public record OwnerDashboard(String firstName, BigDecimal dueTotal, long unpaidCount, long openIncidents,
                                  int myTantiemes, List<Lot> lots, Assembly nextAssembly, List<Announcement> announcements) {}
 }

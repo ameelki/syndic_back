@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface ContactMessageRepository extends JpaRepository<ContactMessage, Long> {
     List<ContactMessage> findAllByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+    void deleteAllByOwnerId(Long ownerId);
 }

@@ -9,4 +9,5 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     List<Vote> findAllByResolutionId(Long resolutionId);
     Optional<Vote> findByResolutionIdAndOwnerId(Long resolutionId, Long ownerId);
     void deleteAllByResolutionId(Long resolutionId);
+    List<Vote> findAllByOwnerId(Long ownerId);
 }

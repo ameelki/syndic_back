@@ -8,6 +8,7 @@ import lu.easy.syndic.repository.UserRepository;
 import lu.easy.syndic.security.JwtService;
 import lu.easy.syndic.service.AgencyService;
 import lu.easy.syndic.service.CurrentUser;
+import lu.easy.syndic.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,9 +26,11 @@ public class AuthController {
     private final CurrentUser current;
     private final AgencyRepository agencies;
     private final AgencyService agencyService;
+    private final NotificationService notifs;
 
     public AuthController(UserRepository users, PasswordEncoder encoder, JwtService jwt, CurrentUser current,
-                          AgencyRepository agencies, AgencyService agencyService) {
+                          AgencyRepository agencies, AgencyService agencyService, NotificationService notifs) {
+        this.notifs = notifs;
         this.agencies = agencies;
         this.agencyService = agencyService;
         this.users = users;
@@ -60,6 +63,13 @@ public class AuthController {
         u.status = UserStatus.PENDING;
         u.agencyId = agency.id;
         users.save(u);
+        for (User adm : users.findAllByAgencyIdAndRole(agency.id, Role.ADMIN)) {
+            if (adm.status == UserStatus.ACTIVE) {
+                notifs.notifyAndMail(adm, "Nouvelle inscription à valider",
+                        u.firstName + " " + u.lastName + " (" + email + ") demande l'accès" + (u.requestedLot == null ? "" : ", lot : " + u.requestedLot) + ".",
+                        "/app/admin/users");
+            }
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse(
                 "Inscription enregistrée. Votre compte sera accessible après validation par le syndic."));
     }

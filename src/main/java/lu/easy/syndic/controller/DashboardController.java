@@ -32,10 +32,15 @@ public class DashboardController {
     private final AnnouncementRepository announcements;
     private final BudgetRepository budgets;
     private final CurrentUser current;
+    private final DeadlineRepository deadlines;
+    private final ChargeCallRepository calls;
 
     public DashboardController(UserRepository users, LotRepository lots, ChargeRepository charges,
                                IncidentRepository incidents, ExpenseRepository expenses, AssemblyRepository assemblies,
-                               AnnouncementRepository announcements, BudgetRepository budgets, CurrentUser current) {
+                               AnnouncementRepository announcements, BudgetRepository budgets, CurrentUser current,
+                               DeadlineRepository deadlines, ChargeCallRepository calls) {
+        this.deadlines = deadlines;
+        this.calls = calls;
         this.budgets = budgets;
         this.users = users;
         this.lots = lots;
@@ -73,6 +78,9 @@ public class DashboardController {
         Set<Long> lotIds = all.stream().map(l -> l.id).collect(Collectors.toSet());
         List<Charge> unpaid = charges.findAllByStatus(ChargeStatus.UNPAID).stream()
                 .filter(c -> buildingId == null || lotIds.contains(c.lotId)).toList();
+        Set<Long> lateCalls = calls.findAll().stream().filter(c -> c.dueDate != null && c.dueDate.isBefore(LocalDate.now()))
+                .map(c -> c.id).collect(Collectors.toSet());
+        List<Charge> overdue = unpaid.stream().filter(c -> lateCalls.contains(c.callId)).toList();
         int year = LocalDate.now().getYear();
         List<Expense> exps = expenses.findAll(Sort.by(Sort.Direction.DESC, "expenseDate")).stream()
                 .filter(e -> buildingId == null || buildingId.equals(e.buildingId)).toList();
@@ -92,7 +100,10 @@ public class DashboardController {
                 open.size(), exp, budget,
                 open.stream().filter(i -> i.priority == Priority.HIGH).count(),
                 exps.stream().limit(5).toList(),
-                nextAssembly(buildingId, null), latestAnnouncements(buildingId, null));
+                nextAssembly(buildingId, null), latestAnnouncements(buildingId, null),
+                overdue.stream().map(c -> c.amount).reduce(BigDecimal.ZERO, BigDecimal::add), overdue.size(),
+                deadlines.findAllByDoneFalseAndDueDateLessThanEqualOrderByDueDateAsc(LocalDate.now().plusDays(60)).stream()
+                        .filter(d -> buildingId == null || d.buildingId == null || buildingId.equals(d.buildingId)).limit(6).toList());
     }
 
     @GetMapping("/dashboard")

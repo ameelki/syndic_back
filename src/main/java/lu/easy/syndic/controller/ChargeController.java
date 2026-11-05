@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -58,6 +59,25 @@ public class ChargeController {
     @PatchMapping("/admin/charges/{id}/paid")
     public ChargeView paid(@PathVariable Long id, @RequestParam boolean paid) {
         return service.setPaid(id, paid);
+    }
+
+    @PostMapping("/admin/charges/{id}/remind")
+    public ChargeView remind(@PathVariable Long id) {
+        return service.remind(id);
+    }
+
+    @PostMapping("/admin/charge-calls/{id}/remind")
+    public Map<String, Integer> remindCall(@PathVariable Long id) {
+        return Map.of("sent", service.remindCall(id));
+    }
+
+    @GetMapping(value = "/admin/charges/export", produces = "text/csv;charset=UTF-8")
+    public ResponseEntity<String> export(@RequestParam(required = false) Long callId,
+                                         @RequestParam(required = false) ChargeStatus status,
+                                         @RequestParam(required = false) Long buildingId) {
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"charges.csv\"")
+                .body(service.exportCsv(callId, status, buildingId));
     }
 
     // ----- Copropriétaire -----

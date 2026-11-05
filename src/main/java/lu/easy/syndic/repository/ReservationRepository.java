@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
     List<Reservation> findAllByOwnerIdOrderByDateDesc(Long ownerId);
     List<Reservation> findAllByDateAndSpaceAndStatus(LocalDate date, String space, ReservationStatus status);
+    void deleteAllByOwnerId(Long ownerId);
 }
