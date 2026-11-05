@@ -69,16 +69,11 @@ public class AuthController {
         User u = users.findByEmail(r.email().trim().toLowerCase())
                 .filter(x -> encoder.matches(r.password(), x.password))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe incorrect"));
+        // La connexion marche depuis n'importe quelle adresse : l'accès aux données dépend de l'agence du compte
+        // (jeton -> utilisateur -> agence), pas du lien utilisé. Le front prend ensuite la marque de cette agence.
+        Agency own = null;
         if (u.role != Role.SUPER_ADMIN) {
-            // un compte ne se connecte que sur le site de sa propre agence
-            if (r.agencySlug() != null && !r.agencySlug().isBlank()) {
-                Agency site = agencies.findBySlug(r.agencySlug().trim().toLowerCase()).orElse(null);
-                if (site == null || !site.id.equals(u.agencyId)) {
-                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                            "Ce compte n'appartient pas à cette agence. Utilisez le lien de votre agence.");
-                }
-            }
-            Agency own = u.agencyId == null ? null : agencies.findById(u.agencyId).orElse(null);
+            own = u.agencyId == null ? null : agencies.findById(u.agencyId).orElse(null);
             if (own == null || !own.active) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cette agence est désactivée. Contactez votre syndic.");
             }
@@ -89,7 +84,7 @@ public class AuthController {
         if (u.status == UserStatus.REJECTED) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Votre demande d'accès a été refusée. Contactez le syndic.");
         }
-        return new AuthResponse(jwt.generate(u.email), toDto(u));
+        return new AuthResponse(jwt.generate(u.email), toDto(u), own == null ? null : AgencyService.toPublic(own));
     }
 
     @GetMapping("/me")

@@ -24,7 +24,8 @@ public final class Dtos {
     public record LoginRequest(@NotBlank @Email String email, @NotBlank String password, @Size(max = 40) String agencySlug) {}
     public record UserDto(Long id, String firstName, String lastName, String email, String phone, String requestedLot,
                           Role role, UserStatus status, LocalDateTime createdAt, LocalDateTime approvedAt, Long agencyId) {}
-    public record AuthResponse(String token, UserDto user) {}
+    /** agency : marque de l'agence du compte (null pour le super administrateur), appliquée par le front après la connexion. */
+    public record AuthResponse(String token, UserDto user, AgencyPublic agency) {}
     public record MessageResponse(String message) {}
     public record ErrorResponse(String message, Map<String, String> fields) {}
 
