@@ -44,7 +44,7 @@ public class AuthController {
     /** L'inscription crée un compte EN ATTENTE : le syndic doit le valider avant toute connexion. */
     @PostMapping("/auth/register")
     public ResponseEntity<MessageResponse> register(@Valid @RequestBody RegisterRequest r) {
-        Agency agency = agencyService.resolveActive(r.agencySlug());
+        Agency agency = agencyService.resolveRequired(r.agencySlug());
         String email = r.email().trim().toLowerCase();
         if (users.existsByEmail(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé");

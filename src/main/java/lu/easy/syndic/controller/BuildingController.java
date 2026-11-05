@@ -111,10 +111,10 @@ public class BuildingController {
         return buildings.findAllById(ids).stream().sorted(java.util.Comparator.comparing(b -> b.name)).toList();
     }
 
-    /** Public : liste des noms pour le formulaire d'inscription, pour l'agence demandée (par défaut : l'agence principale). */
+    /** Public : liste des noms pour le formulaire d'inscription, pour l'agence du lien (obligatoire). */
     @GetMapping("/auth/buildings")
     public List<Map<String, Object>> publicList(@RequestParam(required = false) String agency) {
-        Agency ag = agencyService.resolveActive(agency);
+        Agency ag = agencyService.resolveRequired(agency);
         return buildings.findAllByAgencyId(ag.id, sort()).stream()
                 .map(b -> Map.<String, Object>of("id", b.id, "name", b.name, "city", b.city == null ? "" : b.city)).toList();
     }

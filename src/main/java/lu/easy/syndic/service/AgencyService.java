@@ -31,6 +31,17 @@ public class AgencyService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Agence introuvable"));
     }
 
+    /** Agence exigée (inscription) : pas d'agence par défaut, le lien doit désigner une agence active. */
+    public Agency resolveRequired(String slug) {
+        if (slug == null || slug.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Lien d'inscription invalide : utilisez le lien fourni par votre syndic.");
+        }
+        return agencies.findBySlug(slug.trim().toLowerCase()).filter(a -> a.active)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Agence introuvable ou désactivée : vérifiez le lien fourni par votre syndic."));
+    }
+
     public static AgencyPublic toPublic(Agency a) {
         return new AgencyPublic(a.id, a.slug, a.name, a.tagline, a.logoUrl, a.primaryColor, a.accentColor);
     }
