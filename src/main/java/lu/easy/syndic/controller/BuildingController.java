@@ -3,6 +3,7 @@ package lu.easy.syndic.controller;
 import lu.easy.syndic.dto.Dtos.BuildingSummary;
 import lu.easy.syndic.entity.*;
 import lu.easy.syndic.repository.*;
+import lu.easy.syndic.service.AgencyService;
 import lu.easy.syndic.service.CurrentUser;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -28,9 +29,11 @@ public class BuildingController {
     private final ChargeRepository charges;
     private final IncidentRepository incidents;
     private final CurrentUser currentUser;
+    private final AgencyService agencyService;
 
     public BuildingController(BuildingRepository repo, LotRepository lots, ChargeRepository charges,
-                              IncidentRepository incidents, CurrentUser currentUser) {
+                              IncidentRepository incidents, CurrentUser currentUser, AgencyService agencyService) {
+        this.agencyService = agencyService;
         this.currentUser = currentUser;
         this.buildings = repo;
         this.lots = lots;
@@ -57,13 +60,15 @@ public class BuildingController {
     @ResponseStatus(HttpStatus.CREATED)
     public Building adminCreate(@jakarta.validation.Valid @RequestBody Building b) {
         b.id = null;
+        b.agencyId = null;
         return buildings.save(b);
     }
 
     @PutMapping("/admin/buildings/{id}")
     public Building adminUpdate(@PathVariable Long id, @jakarta.validation.Valid @RequestBody Building b) {
-        if (!buildings.existsById(id)) throw CurrentUser.notFound("Bâtiment");
+        Building existing = buildings.findById(id).orElseThrow(() -> CurrentUser.notFound("Bâtiment"));
         b.id = id;
+        b.agencyId = existing.agencyId;
         return buildings.save(b);
     }
 
@@ -106,10 +111,11 @@ public class BuildingController {
         return buildings.findAllById(ids).stream().sorted(java.util.Comparator.comparing(b -> b.name)).toList();
     }
 
-    /** Public : liste des noms pour le formulaire d'inscription. */
+    /** Public : liste des noms pour le formulaire d'inscription, pour l'agence du lien (obligatoire). */
     @GetMapping("/auth/buildings")
-    public List<Map<String, Object>> publicList() {
-        return buildings.findAll(sort()).stream()
+    public List<Map<String, Object>> publicList(@RequestParam(required = false) String agency) {
+        Agency ag = agencyService.resolveRequired(agency);
+        return buildings.findAllByAgencyId(ag.id, sort()).stream()
                 .map(b -> Map.<String, Object>of("id", b.id, "name", b.name, "city", b.city == null ? "" : b.city)).toList();
     }
 }
